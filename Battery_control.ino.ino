@@ -9,22 +9,29 @@
 //Project adjusted to Arduino Nano.
 //Using an OLED I2C to show the results
 //Pin-number avaliable at http://www.circuitstoday.com/arduino-nano-tutorial-pinout-schematics
-#define SDA 7
-#define SCL 8
-#define greenLight 10
-#define yellowLight 11
-#define redLight 12
-#define battery 19
-#define DISPLAY_ADDRESS 0x70
+#define SDA A4 //A4 
+#define SCL A5 //A5
+#define greenLight 7 //D7
+#define yellowLight 8 //D8
+#define redLight 9 //D9
+#define battery A0 //A0
+#define DISPLAY_ADDRESS 0x3C //
 
 //OLED defines
 #define SCREEN_WIDTH 128 
 #define SCREEN_HEIGHT 32 
 #define OLED_RESET -1
+#define TEXT_SIZE 3
+
+//resistor values defines
+#define R_1 4800.0
+#define R_2 1400.0
+
+//scale for testing with different voltage-levels during testing
+#define scale 1
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-//setup the arduino
 void setup() {
   pinMode(SDA, OUTPUT);
   pinMode(SCL, OUTPUT);
@@ -32,31 +39,28 @@ void setup() {
   pinMode(yellowLight, OUTPUT);
   pinMode(redLight,OUTPUT);
   pinMode(battery, INPUT);
-  Serial.begin(115200);
 
-  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+  Serial.begin (115200);
+  if(!display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDRESS)) { 
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
-
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 10);
+  display.println("Hello, Vortex!");
   display.display();
   delay(2000); // Pause for 2 seconds
 
   // Clear the buffer
   display.clearDisplay();
-  
-  /*
-  disp.begin(DISPLAY_ADDRESS);
-  disp.clear();
-  disp.writeDisplay();
-  */
 }
 
 //change the LED's lights
-void changeLights(const double& voltage){
+void changeLights(const float& voltage){
+  digitalWrite(greenLight, LOW);
+  digitalWrite(yellowLight, LOW);
+  digitalWrite(redLight, LOW);
   if(voltage > 14.5 && voltage < 17){
     digitalWrite(greenLight, HIGH);
     delay(1000);
@@ -65,28 +69,48 @@ void changeLights(const double& voltage){
   else if(voltage > 14 && voltage <= 14.5){
     for(int i = 0; i < 2; i++){
         digitalWrite(yellowLight, HIGH);
-        delay(500);
+        delay(400);
         digitalWrite(yellowLight, LOW);
+        delay(100);
+    }
+  }
+  else if(voltage <= 14){
+    for(int i = 0; i < 4; i++){
+        digitalWrite(redLight, HIGH);
+        delay(150);
+        digitalWrite(redLight, LOW);
+        delay(100);
     }
   }
   else{
-    for(int i = 0; i < 4; i++){
-        digitalWrite(redLight, HIGH);
-        delay(250);
-        digitalWrite(redLight, LOW);
-    }
+    digitalWrite(greenLight, HIGH);
+    digitalWrite(yellowLight, HIGH);
+    digitalWrite(redLight, HIGH);
+    delay(1000);
+    digitalWrite(greenLight, LOW);
+    digitalWrite(yellowLight, LOW);
+    digitalWrite(redLight, LOW);
   }
   return;
 }
 
 //main loop. Calculate and show current voltage, while showing voltage on LED
-//Updating every 2 seconds
-void loop() {
-  double voltage = 1024 * analogRead(battery); //convert to voltage by mul with 1024
+//Updating every second
+void loop(){   
+  float voltage = analogRead(battery) * (5.0 / 1023.0);
+  voltage = (voltage*(R_1+R_2))/(scale*R_2);
   while(1){
-    voltage = 1024 * analogRead(battery);
-    Serial.print(voltage); 
+    voltage = analogRead(battery) * (5.0 / 1023.0);
+    voltage = (voltage*(R_1+R_2))/(scale*R_2);
+    display.clearDisplay();
+    display.setTextSize(TEXT_SIZE);
+    display.setCursor(0,10);
+    display.println(voltage);
+    display.display();
+    Serial.print("Voltage: ");
+    Serial.println(voltage); 
     changeLights(voltage);
-    delay(2000);
+    display.clearDisplay();
+    delay(1000);
   }
 }
